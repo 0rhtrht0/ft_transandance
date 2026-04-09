@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Blackhole
+    orgId: 1
+    folder: Blackhole
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,0 +1,42 @@
+<div class="auth-scene">
+    <div class="space-layer space-layer-a" aria-hidden="true"></div>
+    <div class="space-layer space-layer-b" aria-hidden="true"></div>
+    <div class="space-layer space-layer-c" aria-hidden="true"></div>
+
+    <div class="event-horizon" aria-hidden="true">
+        <div class="accretion-ring"></div>
+        <div class="photon-ring"></div>
+        <div class="singularity"></div>
+    </div>
+
+    <div class="auth-container">
+        <h1> 🕳️BLACKHOLE </h1>
+        <p class="badge">
+            Time is running out, the exit is near... but the shadow lurks.
+        </p>
+
+        <div class="tabs">
+            <button type="button" id="tab-login" class="active">Sign in</button>
+            <button type="button" id="tab-register">Sign up</button>
+        </div>
+
+        <form id="auth-form">
+            <input type="text" id="username" placeholder="Username or email" autocomplete="username" minlength="3" maxlength="254" required />
+            <input type="email" id="email" placeholder="Email" autocomplete="email" style="display: none;" disabled />
+            <input type="password" id="password" placeholder="Password" autocomplete="current-password" minlength="6" required />
+            <button type="button" id="forgot-password-btn" class="auth-inline-link">Forgot password?</button>
+            <input type="password" id="confirm-password" placeholder="Confirm password" autocomplete="new-password" minlength="6" style="display: none;" disabled />
+            <button type="submit" id="submit-btn">Sign in</button>
+            <div id="google-btn" class="google-btn" role="button" tabindex="0">
+                <span class="google-icon">G</span>
+                Continue with Google
+            </div>
+        </form>
+
+        <p id="auth-feedback" class="auth-feedback" aria-live="polite"></p>
+
+        <div class="guest">
+            <button type="button" id="guest-btn">Play as guest</button>
+        </div>
+    </div>
+</div>

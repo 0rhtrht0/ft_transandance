@@ -1,0 +1,507 @@
+:root {
+    --bg-main: #000000;
+    --bg-secondary: #0a0a0a;
+    --text-main: #f5f5f5;
+    --text-muted: #a0a0a0;
+    --maze-line: rgba(255, 255, 255, 0.24);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at center, #0a0a0a 0%, #000000 80%),
+        radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.04), transparent 40%),
+        radial-gradient(circle at 82% 80%, rgba(255, 255, 255, 0.03), transparent 44%),
+        linear-gradient(162deg, #050505 0%, #000000 82%);
+    overflow: hidden;
+}
+
+.maze-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: clamp(12px, 3vw, 28px);
+    position: relative;
+    isolation: isolate;
+}
+
+.maze-shell {
+    position: relative;
+    z-index: 1;
+    width: min(84vw, 940px);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.canvas-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.overlay-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 6;
+}
+
+.maze-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(circle at center, rgba(0, 0, 0, 0.08) 22%, rgba(0, 0, 0, 0.84) 88%);
+}
+
+.maze-page::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.14;
+    mix-blend-mode: screen;
+    background:
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 3px),
+        radial-gradient(circle at 40% 50%, rgba(255, 255, 255, 0.08), transparent 52%);
+    animation: maze-shadow-shift 8s ease-in-out infinite alternate;
+}
+
+.maze-canvas {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: min(76vh, 640px);
+    display: block;
+    border-radius: 16px;
+    border: 0;
+    background: #0a0a0a;
+    box-shadow:
+        0 30px 72px rgba(0, 0, 0, 0.78),
+        0 0 34px rgba(255, 255, 255, 0.1);
+    image-rendering: pixelated;
+}
+
+.maze-top-controls {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background:
+        linear-gradient(160deg, rgba(26, 26, 26, 0.92), rgba(8, 8, 8, 0.88)),
+        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 48%);
+    box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.72),
+        0 0 0 1px rgba(255, 255, 255, 0.07) inset,
+        0 0 22px rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(4px);
+    padding: 8px 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.maze-top-controls.is-open {
+    border-color: rgba(255, 255, 255, 0.44);
+    box-shadow:
+        0 18px 36px rgba(0, 0, 0, 0.78),
+        0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+        0 0 28px rgba(210, 210, 210, 0.14);
+    transform: translateY(1px);
+}
+
+.maze-session-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.maze-player-cards {
+    display: none;
+    align-items: center;
+    gap: 8px;
+}
+
+.maze-player-cards.is-visible {
+    display: inline-flex;
+}
+
+.maze-player-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 5px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: linear-gradient(145deg, rgba(54, 54, 54, 0.52), rgba(18, 18, 18, 0.44));
+}
+
+.maze-player-card.is-local {
+    border-color: rgba(255, 255, 255, 0.46);
+}
+
+.maze-player-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(78, 78, 78, 0.74);
+    color: #f2f2f2;
+    display: grid;
+    place-items: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.maze-player-avatar.has-image {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: transparent;
+}
+
+.maze-player-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.maze-player-name {
+    font-size: 0.76rem;
+    color: #f4f4f4;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.maze-player-role {
+    font-size: 0.62rem;
+    color: rgba(225, 225, 225, 0.76);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.maze-info-chip {
+    padding: 7px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: linear-gradient(145deg, rgba(52, 52, 52, 0.52), rgba(20, 20, 20, 0.46));
+    color: #f2f2f2;
+    font-family: "Space Grotesk", "Rajdhani", "Trebuchet MS", sans-serif;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.maze-info-button {
+    padding: 7px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: linear-gradient(145deg, rgba(52, 52, 52, 0.52), rgba(20, 20, 20, 0.46));
+    color: #f2f2f2;
+    font-family: "Space Grotesk", "Rajdhani", "Trebuchet MS", sans-serif;
+    font-size: 0.84rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    transition: border-color 140ms ease, box-shadow 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.maze-info-button:disabled {
+    opacity: 1;
+    cursor: default;
+}
+
+.maze-info-button.is-waiting {
+    color: rgba(245, 245, 245, 0.88);
+}
+
+.maze-info-button.is-active {
+    border-color: rgba(255, 94, 94, 0.74);
+    color: #ffe3e3;
+    background: linear-gradient(145deg, rgba(96, 28, 28, 0.9), rgba(44, 15, 15, 0.88));
+    box-shadow: 0 0 18px rgba(255, 72, 72, 0.24);
+}
+
+.maze-info-button.is-consumed {
+    border-color: rgba(146, 255, 182, 0.55);
+    color: #d5ffdf;
+    background: linear-gradient(145deg, rgba(28, 70, 36, 0.9), rgba(15, 40, 22, 0.86));
+}
+
+.info-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.88;
+}
+
+.info-value {
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    color: #ffffff;
+}
+
+.pause-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+}
+
+.maze-wallet-hud {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: linear-gradient(145deg, rgba(68, 68, 68, 0.78), rgba(18, 18, 18, 0.9));
+    color: #f7f7f7;
+    box-shadow:
+        0 10px 22px rgba(0, 0, 0, 0.46),
+        0 0 18px rgba(255, 255, 255, 0.06);
+    white-space: nowrap;
+}
+
+.maze-wallet-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.82;
+}
+
+.maze-wallet-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.pause-actions button {
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: #f3f3f3;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    font-family: "Space Grotesk", "Rajdhani", "Trebuchet MS", sans-serif;
+    letter-spacing: 0.07em;
+    background: linear-gradient(145deg, rgba(46, 46, 46, 0.94), rgba(18, 18, 18, 0.9));
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, opacity 120ms ease;
+}
+
+.pause-actions button:hover {
+    border-color: rgba(255, 255, 255, 0.56);
+    background: linear-gradient(145deg, rgba(60, 60, 60, 0.96), rgba(28, 28, 28, 0.92));
+    transform: translateY(-1px);
+}
+
+.pause-actions button:active {
+    transform: translateY(0);
+}
+
+.pause-actions button:disabled {
+    opacity: 0.55;
+    cursor: default;
+    transform: none;
+}
+
+#pause-quit-btn {
+    border-color: rgba(255, 165, 165, 0.44);
+    background: linear-gradient(145deg, rgba(74, 24, 24, 0.9), rgba(36, 14, 14, 0.86));
+}
+
+#pause-quit-btn:hover {
+    border-color: rgba(255, 185, 185, 0.7);
+    background: linear-gradient(145deg, rgba(90, 30, 30, 0.94), rgba(44, 16, 16, 0.9));
+}
+
+@media (max-width: 860px) {
+    .maze-top-controls {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        gap: 8px;
+    }
+
+    .maze-session-info {
+        justify-content: center;
+    }
+
+    .pause-actions {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+}
+
+@keyframes maze-shadow-shift {
+    from {
+        transform: translate3d(-8px, -4px, 0);
+        opacity: 0.1;
+    }
+    to {
+        transform: translate3d(8px, 6px, 0);
+        opacity: 0.2;
+    }
+}
+
+/* ====== Multiplayer HUD ====== */
+#top-players.is-visible {
+    opacity: 1;
+    display: flex !important;
+}
+
+#top-players {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin-left: 15px;
+    padding-left: 15px;
+    border-left: 2px solid rgba(255, 255, 255, 0.2);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.hud-player-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+
+.hud-player-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.hud-player-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+.hud-player-card.local-player .hud-player-avatar {
+    border-color: #4CAF50;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.4);
+}
+
+.hud-player-card.remote-player .hud-player-avatar {
+    border-color: #F44336;
+    box-shadow: 0 0 10px rgba(244, 67, 54, 0.4);
+}
+
+.hud-player-name {
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: #f5f5f5;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.hud-player-points {
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.hud-vs-badge {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #ffd700;
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+    font-style: italic;
+}
+
+/* Update the Multiplayer Score Panel for In-Game */
+.maze-player-cards {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: rgba(10, 15, 20, 0.85);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1), inset 0 0 8px rgba(0, 255, 255, 0.05);
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
+    transition: opacity 0.3s ease;
+}
+
+.maze-player-cards.is-visible {
+    display: flex;
+}
+
+/* Waiting Screen Overlay (BlackHole Theme) */
+.matchmaking-waiting-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 10, 10, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+    padding: 40px 60px;
+    border-radius: 12px;
+    text-align: center;
+    color: #ffffff;
+    font-family: 'Orbitron', 'Inter', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    line-height: 1.6;
+    z-index: 100;
+}
+
+.matchmaking-status {
+    font-size: 1.5rem;
+    margin-bottom: 24px;
+    letter-spacing: 4px;
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+    animation: pulse-glow 2s infinite alternate;
+}
+
+.matchmaking-participants {
+    font-size: 1.1rem;
+    color: #bbbbbb;
+    letter-spacing: 2px;
+    margin-top: 10px;
+}
+
+@keyframes pulse-glow {
+    0% {
+        opacity: 0.7;
+        text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+    }
+    100% {
+        opacity: 1;
+        text-shadow: 0 0 15px rgba(255, 255, 255, 0.7);
+    }
+}

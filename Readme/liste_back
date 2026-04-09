@@ -1,0 +1,262 @@
+Voici ta checklist backend complète (Vue frontend + backend Python) pour ft_transcendence.
+
+1. Base technique du backend
+
+Créer le backend dans /home/rorandri/Music/transcendence_labyrinthe/backend/python.
+Mettre en place FastAPI + Uvicorn.
+Ajouter SQLAlchemy + Alembic + driver PostgreSQL (psycopg).
+Ajouter Pydantic pour la validation des requêtes/réponses.
+Ajouter une structure claire: app/main.py, app/api, app/models, app/schemas, app/services, app/core.
+2. Configuration et secrets
+
+Créer .env (non commit) et .env.example (commit).
+Variables minimales: DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, BACKEND_PORT, FRONTEND_URL, ENV.
+Charger la config via un module central (settings).
+3. Base de données relationnelle (obligatoire)
+
+Créer les tables minimales: users, profiles, friend_requests, friendships, matches, match_players, messages, notifications.
+Définir les clés étrangères, index, contraintes UNIQUE, timestamps.
+Générer migrations Alembic (revision + upgrade).
+Prévoir des données seed de dev.
+4. Authentification sécurisée (obligatoire)
+
+Endpoints: POST /auth/signup, POST /auth/login, POST /auth/logout, GET /auth/me.
+Hasher les mots de passe (argon2/bcrypt), jamais en clair.
+Mettre access token + refresh token (rotation).
+Ajouter protection brute force/rate limit sur login.
+Ajouter la fonctionnalité mot de passe oublié backend avec token de reset expirant.
+5. Validation et sécurité des entrées (obligatoire)
+
+Valider toutes les entrées API avec Pydantic.
+Vérifier côté backend longueurs, formats, enums, bornes.
+Gérer proprement les erreurs (4xx/5xx cohérentes).
+Ajouter CORS strict (ton domaine frontend seulement).
+6. Multiplayer temps réel (obligatoire pour ton jeu)
+
+Implémenter WebSocket côté backend (/ws).
+Gérer lobby, création/join de room, matchmaking.
+Rendre le serveur autoritatif sur l’état de jeu.
+Ajouter tick serveur (ex: 20 Hz), heartbeat, timeout.
+Gérer déconnexion et reconnexion joueur.
+Synchroniser état (broadcast) sans race condition.
+Persister fin de partie et stats en DB.
+7. Interaction utilisateurs (module Web/User)
+
+API profil utilisateur (lecture/édition).
+API avatar upload sécurisé.
+API amis: envoyer/accepter/refuser/supprimer.
+API online status.
+API chat basique (privé ou room) + persistance messages.
+8. Endpoints API de jeu
+
+POST /matches/create
+POST /matches/{id}/join
+POST /matches/{id}/leave
+GET /matches/{id}
+GET /users/{id}/history
+GET /leaderboard
+9. Logs, monitoring, health
+
+Logs structurés JSON (requêtes, erreurs, events WS).
+Endpoint GET /health et GET /ready.
+Traces de crash et exceptions globales.
+10. Docker + déploiement (obligatoire)
+
+Dockerfile backend Python.
+docker-compose.yml avec frontend, backend, postgres, redis (optionnel recommandé), reverse-proxy.
+Lancement en une commande: docker compose up --build.
+Volumes DB + réseau interne.
+11. HTTPS backend (obligatoire)
+
+Mettre Nginx/Caddy en reverse proxy devant backend.
+Activer HTTPS partout (au moins en environnement de démo/éval).
+Rediriger HTTP -> HTTPS.
+12. Tests backend
+
+Tests unitaires services.
+Tests intégration API (auth, users, friends, matches).
+Tests WebSocket (join/leave/reconnect/state update).
+Test de concurrence multi-user (au moins un scénario).
+13. Documentation backend (critique pour l’éval)
+
+Documenter architecture backend.
+Documenter schéma DB (diagramme relationnel).
+Documenter protocole WebSocket.
+Documenter endpoints (OpenAPI FastAPI + exemples).
+Expliquer sécurité appliquée (hash, tokens, rate-limit).
+14. Minimum “anti-rejet” à finir en premier
+
+Backend Python fonctionnel.
+PostgreSQL + schéma relationnel + migrations.
+Auth sécurisée backend (plus de localStorage password).
+Multi-user réel via WebSocket.
+Docker compose one-command.
+HTTPS + pages legal (privacy/tos) côté app globale.
+README complet.
+----------------------------------------------------------------------------------------------------------------------------------------------------
+Voici un plan Sprint 1 → Sprint 4 concret pour ton backend Python.
+
+Cadence
+
+Sprint 1: socle mandatory (4-5 jours)
+Sprint 2: user/social API (4-5 jours)
+Sprint 3: multijoueur temps réel (5-7 jours)
+Sprint 4: sécurité, docker, doc, tests (4-5 jours)
+
+Sprint 1 - Fondations backend (Mandatory d’abord)
+
+1.Créer la structure backend Python:
+main.py
+config.py
+database.py
+security.py
+requirements.txt
+2.Mettre en place PostgreSQL + SQLAlchemy + Alembic.
+3.Créer modèles minimaux:
+user.py
+profile.py
+4.Auth sécurisée:
+POST /auth/signup
+POST /auth/login
+GET /auth/me
+5.Ajouter .env + .env.example (au niveau racine projet).
+
+Definition of Done Sprint 1
+
+1.API tourne localement.
+2.Migrations DB fonctionnent.
+3.Signup/Login/Me testés.
+4.Mots de passe hashés (pas en clair).
+
+Sprint 2 - User management + social
+
+1.CRUD profil:
+GET /users/{id}
+PATCH /users/me
+upload avatar sécurisé.
+-------
+Leaderboard
+
+Stocker les scores ou statistiques des joueurs.
+
+Routes possibles :
+
+GET /leaderboard → Top N joueurs.
+
+GET /leaderboard/{user_id} → Score individuel.
+
+Travailler sur l’optimisation si le nombre de joueurs devient grand (indexation SQL).
+
+3️⃣ Historiques des parties
+
+Stocker les parties jouées avec détails :
+
+Joueurs impliqués, scores, date, durée, gagnant.
+
+Routes possibles :
+
+GET /games/history → Historique pour le joueur connecté.
+
+GET /games/history/{game_id} → Détails d’une partie spécifique.
+
+4️⃣ Matchmaking
+
+Créer un système pour faire rejoindre des joueurs automatiquement dans une partie.
+
+Idées :
+
+Queue de matchmaking (FIFO ou basé sur MMR/score).
+
+Routes :
+
+POST /matchmaking/join → Rejoindre la file.
+
+POST /matchmaking/leave → Quitter la file.
+
+WebSocket pour notifier quand un match est trouvé.
+----
+2.Système amis:
+POST /friends/request
+POST /friends/{id}/accept
+DELETE /friends/{id}
+GET /friends
+3.Chat basique persistant:
+GET /messages/{conversation_id}
+POST /messages
+4.Tables à ajouter:
+friend_requests, friendships, messages, notifications.
+
+Definition of Done Sprint 2
+
+1.Profil + amis + chat marchent en DB.
+2.Validation backend partout.
+3.Erreurs API propres (400/401/403/404/422).
+
+Sprint 3 - Multijoueur temps réel (coeur de ton jeu)
+
+1.WebSocket backend:
+ws.py
+match_service.py
+connection_manager.py
+2.Features:
+lobby create/join/leave
+matchmaking queue
+serveur autoritatif (tick 20 Hz)
+état synchronisé clients
+déconnexion/reconnexion
+3.Persistance jeu:
+tables matches, match_players, user_stats.
+
+Definition of Done Sprint 3
+
+1.2+ joueurs en temps réel sur machines différentes.
+2.Matchs sauvegardés en DB.
+3.Historique + leaderboard récupérables via API.
+
+Sprint 4 - Sécurité, Docker, HTTPS, doc, tests
+
+1.Docker:
+docker-compose.yml
+Dockerfile
+2.Services compose:
+frontend
+backend
+postgres
+nginx/caddy (HTTPS)
+optionnel redis
+3.Sécurité:
+rate limiting login
+CORS strict
+headers sécurité
+logs structurés
+/health et /ready
+4.README évaluation:
+rôles équipe
+stack
+schéma DB
+modules + points
+contributions individuelles
+
+Definition of Done Sprint 4
+
+1.docker compose up --build lance tout.
+2.Backend derrière HTTPS.
+3.README complet et prêt peer-eval.
+4.Zéro erreur console bloquante.
+Ordre immédiat (aujourd’hui)
+
+1.Initialiser FastAPI + DB + Alembic (Sprint 1).
+2.Remplacer totalement l’auth localStorage par API backend.
+3.Brancher ton frontend Vue sur VITE_API_URL.
+////////////////////////////////////////////////////////////////////////////////////////////
+
+====================
+Prochaine étape (très importante)
+
+Je peux te montrer comment ajouter le GAME LOOP serveur pour ton jeu Blackhole :
+
+server tick
+game state
+synchronisation des joueurs
+collision
+fin de partie

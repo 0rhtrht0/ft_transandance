@@ -1,0 +1,38 @@
+groups:
+  - name: blackhole-alerts
+    rules:
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend indisponible"
+          description: "Le backend Blackhole ne repond plus aux scrapes Prometheus."
+
+      - alert: PostgresExporterDown
+        expr: up{job="postgres_exporter"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Postgres exporter indisponible"
+          description: "Prometheus ne collecte plus les metriques PostgreSQL."
+
+      - alert: HttpProbeFailed
+        expr: probe_success{job="blackbox_http"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Probe HTTP en echec"
+          description: "Une cible surveillee par blackbox-exporter ne repond plus correctement."
+
+      - alert: BackendServerErrors
+        expr: sum(rate(blackhole_http_requests_total{status=~"5.."}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Erreurs 5xx detectees"
+          description: "Le backend retourne des erreurs serveur depuis au moins cinq minutes."

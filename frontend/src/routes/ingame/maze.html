@@ -1,0 +1,41 @@
+<div class="maze-page">
+    <div class="maze-shell">
+        <div id="pauseOverlay" class="maze-top-controls" aria-hidden="true">
+            <div class="maze-session-info">
+                <div class="maze-info-chip">
+                    <span class="info-label">Time</span>
+                    <span id="top-time" class="info-value">0:00</span>
+                </div>
+                <div class="maze-info-chip">
+                    <span class="info-label">Pace</span>
+                    <span id="top-pace" class="info-value">12</span>
+                </div>
+                <div class="maze-info-chip">
+                    <span class="info-label">Difficulty</span>
+                    <span id="top-stage" class="info-value">Medium · Stage 1/100</span>
+                </div>
+                <div id="top-players" class="maze-player-cards" aria-live="polite"></div>
+                <button id="top-bonus-btn" class="maze-info-button" type="button" disabled>Bonus 0:15</button>
+            </div>
+            <div class="pause-actions">
+                <div class="maze-wallet-hud" aria-live="polite">
+                    <span class="maze-wallet-label">EP:</span>
+                    <span id="top-evaluation-points" class="maze-wallet-value">0</span>
+                </div>
+                <button id="pause-toggle-btn" type="button" aria-pressed="false">Pause</button>
+                <button id="pause-restart-btn" type="button">Restart</button>
+                <button id="pause-quit-btn" type="button">Quit</button>
+            </div>
+        </div>
+        <div class="canvas-wrapper">
+            <canvas id="gameCanvas" class="maze-canvas" width="600" height="600" aria-label="Maze game canvas"></canvas>
+            <canvas id="overlayCanvas" class="overlay-canvas" width="600" height="600" aria-hidden="true"></canvas>
+        </div>
+        <svg width="0" height="0" style="position:absolute;">
+            <filter id="grav-distort">
+                <feTurbulence type="fractalNoise" baseFrequency="0.008" numOctaves="1" stitchTiles="stitch" result="turb" />
+                <feDisplacementMap in="SourceGraphic" in2="turb" scale="8" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+        </svg>
+    </div>
+</div>

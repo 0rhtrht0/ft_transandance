@@ -1,0 +1,18 @@
+global:
+  smtp_smarthost: mailpit:1025
+  smtp_from: alertmanager@blackhole.local
+  smtp_require_tls: false
+
+route:
+  receiver: mailpit-email
+  group_by: ["alertname", "severity"]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 2h
+
+receivers:
+  - name: mailpit-email
+    email_configs:
+      - to: monitoring@blackhole.local
+        send_resolved: true
+

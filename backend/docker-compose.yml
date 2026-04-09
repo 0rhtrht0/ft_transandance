@@ -1,0 +1,154 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: blackhole-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: blackhole
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: blackhole_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./postgres/scripts:/scripts:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    container_name: blackhole-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./python/.env.docker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    expose:
+      - "8000"
+    volumes:
+      - ./python:/usr/src/app
+
+  frontend:
+    image: node:20-bookworm-slim
+    container_name: blackhole-frontend
+    working_dir: /app
+    command: sh -c "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0 --port 5173"
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: https://localhost:8443
+      VITE_WS_URL: wss://localhost:8443
+      VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+    volumes:
+      - ../frontend:/app
+    expose:
+      - "5173"
+
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: blackhole-caddy
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/certs:/etc/caddy/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: blackhole-prometheus
+    restart: unless-stopped
+    depends_on:
+      - alertmanager
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.external-url=/prometheus/
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: blackhole-alertmanager
+    restart: unless-stopped
+    depends_on:
+      - mailpit
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --web.route-prefix=/alertmanager/
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: blackhole-postgres-exporter
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATA_SOURCE_NAME: postgresql://blackhole:password@postgres:5432/blackhole_db?sslmode=disable
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: blackhole-blackbox-exporter
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/blackbox_exporter/config.yml
+    volumes:
+      - ./monitoring/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: blackhole-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - alertmanager
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: blackhole-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  redis:
+    image: redis:7-alpine
+    container_name: blackhole-redis
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
+  grafana_data:

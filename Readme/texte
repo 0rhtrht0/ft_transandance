@@ -1,0 +1,195 @@
+rité)
+
+README.md obligatoire absent (et très structuré dans le sujet) : racine projet
+Pas de base de données ni schéma relationnel (aucune stack DB détectée) : package.json (line 14)
+Auth non sécurisée (comptes + mots de passe en clair dans localStorage) : auth.js (line 14), auth.js (line 198)
+Backend trop minimal (serveur statique uniquement, pas d’API métier) : index.js (line 11)
+Temps réel/multijoueur non implémenté (squelettes TODO) : gateway.js (line 1), join.js (line 1), gameClient.js (line 1)
+Pas de Docker/compose, pas de .env/.env.example, pas de .gitignore : racine projet
+Pas de pages Privacy Policy / Terms of Service accessibles depuis l’app
+Multi-user support obligatoire non démontrable
+Ce qui est déjà bon
+
+Frontend framework en place (Vue + router) : router
+Jeu local jouable avec logique victoire/défaite : GameScene.js (line 732)
+Build OK (vite build passe)
+Pour viser le max de points (et sécuriser la validation)
+
+D’abord rendre le mandatory 100% conforme.
+Ensuite viser un pack cohérent à 16+ points, par exemple:
+Web major: framework frontend+backend (2)
+Web major: temps réel WebSocket (2)
+Gaming major: jeu web multijoueur (2)
+Gaming major: remote players (2)
+User mgmt major: profil/avatar/friends/status (2)
+Web major: interaction users (chat + profil + friends) (2)
+User mgmt minor: stats + historique (1)
+Gaming minor: tournoi (1)
+Web minor: ORM (1)
+Web minor: notifications CRUD (1)
+Total: 16 points (buffer si un module saute).
+
+Si tu veux, je peux te préparer maintenant une roadmap exécutable en sprints (ordre exact des features + structure DB + checklist README d’évaluation).
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+backend 
+Architecture recommandée
+
+frontend Vue (Vite)
+backend Python (FastAPI)
+db PostgreSQL
+docker-compose pour lancer tout en une commande
+Ce que tu dois faire concrètement
+
+Retirer Express du frontend:
+npm uninstall express
+Ne plus utiliser index.js comme backend (garde-le seulement si archive).
+Créer un dossier backend Python:
+backend/app/main.py
+backend/app/models/
+backend/app/schemas/
+backend/app/api/
+backend/alembic/ (migrations)
+backend/requirements.txt
+Installer stack Python:
+fastapi, uvicorn, sqlalchemy, alembic, psycopg (ou asyncpg)
+passlib/argon2 pour hash des mots de passe
+python-jose ou sessions sécurisées
+Ajouter la base relationnelle (PostgreSQL) + schéma:
+Table users
+Table profiles (1-1 avec users)
+Table friendships (N-N entre users)
+Table matches
+Table match_players (N-N users<->matches)
+Table messages (chat)
+Clés étrangères + index + contraintes UNIQUE
+Générer les migrations:
+alembic revision --autogenerate -m "init schema"
+alembic upgrade head
+Connecter Vue au backend:
+VITE_API_URL=http://localhost:8000
+Appels API via fetch/axios vers FastAPI
+CORS activé côté backend
+Ajouter .env et .env.example:
+DATABASE_URL=...
+JWT_SECRET=...
+BACKEND_PORT=8000
+VITE_API_URL=...
+Dockeriser (obligatoire pour ft_transcendence):
+docker-compose.yml avec frontend, backend, db
+Lancement unique: docker compose up --build
+Pourquoi c’est la bonne approche
+
+Vue + FastAPI est standard et propre.
+Tu remplaces localStorage pour les users/mots de passe par une vraie DB relationnelle.
+Tu couvres les exigences Mandatory: frontend + backend + database + auth sécurisée + multi-user possible.
+------------------------------------------------------------------------------------------------------------------
+Objectif
+Vise 20+ points pour avoir de la marge, mais verrouille d’abord le mandatory sinon rejet direct.
+
+1. Mandatory (rejet si manquant)
+
+Avoir un vrai frontend + backend + base de données relationnelle.
+Remplacer le stockage auth local par backend sécurisé (hash mot de passe, sessions/JWT).
+Support multi-utilisateur réel en simultané (actions concurrentes sans corruption).
+Déploiement en conteneurs avec une seule commande (docker compose up --build).
+Backend en HTTPS (reverse proxy Nginx/Caddy).
+Validation des entrées côté frontend et backend.
+.env ignoré Git + .env.example complet.
+Pages Privacy Policy et Terms of Service accessibles depuis l’app.
+Compatibilité Chrome stable, zéro erreur console.
+README complet en anglais avec tous les blocs demandés (rôles, modules, contributions, stack, schéma DB).
+2. Stack recommandée (Vue + Python)
+
+Frontend: Vue 3 + Vite.
+Backend: FastAPI + Uvicorn.
+DB: PostgreSQL.
+ORM: SQLAlchemy + migrations Alembic.
+Temps réel: WebSocket (FastAPI) + Redis pub/sub (optionnel mais utile).
+Auth: passlib/argon2, JWT access+refresh, cookies HttpOnly si possible.
+Infra: Docker Compose, Nginx/Caddy, monitoring basique.
+3. Plan modules pour scorer fort
+Pack minimum validé (14 pts) :
+
+Web major: framework frontend+backend (2)
+Web major: temps réel WebSocket (2)
+Gaming major: jeu web complet (2)
+Gaming major: remote players (2)
+Gaming major: multiplayer >2 joueurs (2)
+User management major: gestion user standard (2)
+Web major: interaction users (chat + profil + friends) (2)
+Bonus réalistes à ajouter (+8 à +12) :
+
+Web minor: ORM (+1)
+Web minor: notifications CRUD (+1)
+User minor: stats + historique match (+1)
+User minor: OAuth2 (+1)
+User minor: 2FA (+1)
+Gaming minor: tournoi (+1)
+Gaming minor: spectator mode (+1)
+Gaming minor: game customization (+1)
+Gaming minor: advanced chat features (+1)
+Data major: analytics dashboard (+2)
+AI major: AI opponent (+2)
+4. Checklist technique multijoueur (jeu)
+
+Système de lobby: create/join/leave room.
+Matchmaking simple (file d’attente).
+Serveur autoritatif (l’état du jeu est calculé côté backend).
+Tick serveur fixe (ex: 20 Hz).
+Envoi d’inputs client, pas d’état complet client.
+Sync état vers clients avec numéro de tick.
+Interpolation/prédiction côté client pour fluidité.
+Gestion latence et lag spikes.
+Reconnexion joueur en cours de partie.
+Gestion déconnexion propre et fin de match.
+Historique des matchs en DB.
+Classement/leaderboard.
+Anti-cheat de base (validation input, rate limit).
+Logs serveurs + traçabilité des erreurs.
+Tests charge simple (plusieurs clients simultanés).
+5. Schéma DB minimum
+
+users
+profiles
+friendships
+friend_requests
+matches
+match_players
+messages
+notifications
+tournaments
+tournament_participants
+user_stats
+sessions ou refresh_tokens
+6. Roadmap pratique (ordre optimal)
+
+Backend FastAPI + PostgreSQL + Alembic + auth sécurisée.
+API users/profiles/friends/chat + ORM.
+WebSocket multijoueur serveur autoritatif.
+Matchmaking + remote play + >2 joueurs.
+Stats/historique + leaderboard.
+Tournoi + spectator + notifications.
+OAuth/2FA + privacy/tos + GDPR features.
+Docker/HTTPS/README final + script de démo évaluation.
+************************************************************************************************************************************
+Oui. Pour 25 points, prends un set cohérent et “évaluable” comme ça:
+
+Web major Framework frontend + backend = 2
+Web major Realtime (WebSockets) = 2
+Web major User interaction (chat + profils + friends) = 2
+Gaming major Jeu web complet = 2
+Gaming major Remote players = 2
+Gaming major Multiplayer > 2 joueurs = 2
+Gaming major Add another game + matchmaking + history = 2
+AI major AI Opponent = 2
+User major Standard user management = 2
+User major Advanced permissions = 2
+Web minor ORM = 1
+User minor Game statistics + match history = 1
+User minor OAuth2 = 1
+Gaming minor Tournament system = 1
+Gaming minor Spectator mode = 1
+Total = 25
+
+Pour sécuriser l’éval, vise plutôt 27+ (2 points de marge), car un module partiellement fini = 0 point.
+Si tu veux, je te fais le plan sprint par sprint pour implémenter ce pack en Vue + FastAPI + PostgreSQL.
