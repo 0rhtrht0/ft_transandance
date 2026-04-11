@@ -155,21 +155,21 @@ export default class Maze {
                     let wallColor;
                     if (normalizedDistance < 0.26) {
                         if (parity) {
-                            wallColor = "#464646";
+                            wallColor = "#231433";
                         } else {
-                            wallColor = "#505050";
+                            wallColor = "#2b183d";
                         }
                     } else if (normalizedDistance < 0.54) {
                         if (parity) {
-                            wallColor = "#3a3a3a";
+                            wallColor = "#1d112c";
                         } else {
-                            wallColor = "#444444";
+                            wallColor = "#251636";
                         }
                     } else {
                         if (parity) {
-                            wallColor = "#2c2c2c";
+                            wallColor = "#160d22";
                         } else {
-                            wallColor = "#343434";
+                            wallColor = "#1b1029";
                         }
                     }
 
@@ -177,7 +177,7 @@ export default class Maze {
                     ctx.fillStyle = wallColor;
                     ctx.fillRect(x * size + jitter, y * size, size, size);
 
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+                    ctx.strokeStyle = "rgba(172, 122, 255, 0.11)";
                     ctx.lineWidth = 0.5;
                     ctx.strokeRect(x * size, y * size, size, size);
                 } else {

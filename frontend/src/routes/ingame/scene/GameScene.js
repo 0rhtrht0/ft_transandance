@@ -60,6 +60,18 @@ export default class GameScene {
         this.hasAwardedPaceBonus = false;
         this.bonusRemainingSeconds = 0;
         this.bonusElapsedSeconds = 0;
+        this.collectibles = {
+            pacGums: new Map(),
+            superPacGums: new Map()
+        };
+        this.superPacInventory = null;
+        this.collectibleBonusActive = false;
+        this.collectibleBonusRemainingSeconds = 0;
+        this.collectibleBonusDurationSeconds = 0;
+        this.collectibleBonusType = null;
+        this.collectibleBonusSpeedBase = null;
+        this.collectibleBonusVisionBase = null;
+        this.collectibleTrailActive = false;
         this.timeLimitSeconds = 57;
         this.levelClearState = "idle";
         this.levelClearTimer = 0;
@@ -518,6 +530,7 @@ export default class GameScene {
         this.blackHole = new BlackHole(blackHoleX, blackHoleY, blackHoleRadius, this.pace);
         this.pace = paceData.pace;
         this.visionRadiusWorld = cmToPx(paceData.visionCm);
+        this.baseVisionRadiusWorld = this.visionRadiusWorld;
         this.blackHoleCollisionRadius = Math.max(this.tileSize * 0.3, blackHoleRadius * 0.28);
         this.blackHole._movementCollisionRadius = this.blackHoleCollisionRadius;
 
@@ -531,7 +544,10 @@ export default class GameScene {
                 speed: tileSize * 5.2
             }
         );
-        this.player.setBonusActive(this.isBonusActive);
+        this.collectibles = logicResult.collectibles
+            ? this.buildCollectiblesFromLayout(logicResult.collectibles)
+            : this.buildDefaultCollectiblesFromLogicResult(logicResult);
+        this.syncPlayerBonusVisualState();
 
         for (const remote of this.remotePlayers.values()) {
             remote.destroy();
@@ -725,9 +741,7 @@ export default class GameScene {
         this.hasAwardedPaceBonus = true;
         this.isBonusActive = true;
         this.bonusRemainingSeconds = this.bonusDurationSeconds;
-        if (this.player) {
-            this.player.setBonusActive(true);
-        }
+        this.syncPlayerBonusVisualState();
     }
 
     updateBonusClock(deltaSeconds) {
@@ -741,10 +755,180 @@ export default class GameScene {
         if (this.bonusRemainingSeconds <= 0) {
             this.isBonusActive = false;
             this.bonusRemainingSeconds = 0;
-            if (this.player) {
-                this.player.setBonusActive(false);
+            this.syncPlayerBonusVisualState();
+        }
+    }
+
+    getCellKey(cell) {
+        return `${cell.x},${cell.y}`;
+    }
+
+    buildCollectiblesFromLayout(collectibles = {}) {
+        const pacGums = new Map();
+        const superPacGums = new Map();
+
+        if (Array.isArray(collectibles.pacGums)) {
+            for (const cell of collectibles.pacGums) {
+                if (!cell || !Number.isInteger(cell.x) || !Number.isInteger(cell.y)) {
+                    continue;
+                }
+                const normalized = { x: cell.x, y: cell.y };
+                pacGums.set(this.getCellKey(normalized), normalized);
             }
         }
+
+        if (Array.isArray(collectibles.superPacGums)) {
+            for (const cell of collectibles.superPacGums) {
+                if (!cell || !Number.isInteger(cell.x) || !Number.isInteger(cell.y)) {
+                    continue;
+                }
+                const normalized = { x: cell.x, y: cell.y };
+                const key = this.getCellKey(normalized);
+                if (pacGums.has(key)) {
+                    superPacGums.set(key, normalized);
+                }
+            }
+        }
+
+        return { pacGums, superPacGums };
+    }
+
+    buildDefaultCollectiblesFromLogicResult(logicResult) {
+        const pacGums = new Map();
+        const superPacGums = new Map();
+
+        if (!logicResult || !Array.isArray(logicResult.grid)) {
+            return { pacGums, superPacGums };
+        }
+
+        const occupied = new Set();
+        for (const cell of [logicResult.p1, logicResult.p2, logicResult.door, logicResult.bh1, logicResult.bh2]) {
+            if (cell && Number.isInteger(cell.x) && Number.isInteger(cell.y)) {
+                occupied.add(this.getCellKey(cell));
+            }
+        }
+
+        const freeCells = [];
+        for (let y = 0; y < logicResult.rows; y += 1) {
+            for (let x = 0; x < logicResult.cols; x += 1) {
+                if (logicResult.grid?.[y]?.[x] === 0) {
+                    const cell = { x, y };
+                    freeCells.push(cell);
+                    if (!occupied.has(this.getCellKey(cell))) {
+                        pacGums.set(this.getCellKey(cell), cell);
+                    }
+                }
+            }
+        }
+
+        const shuffledFreeCells = freeCells
+            .filter((cell) => !occupied.has(this.getCellKey(cell)))
+            .sort(() => Math.random() - 0.5);
+        const superCount = Math.min(shuffledFreeCells.length, 1 + Math.floor(Math.random() * 3));
+        for (const cell of shuffledFreeCells.slice(0, superCount)) {
+            superPacGums.set(this.getCellKey(cell), cell);
+        }
+
+        return { pacGums, superPacGums };
+    }
+
+    syncPlayerBonusVisualState() {
+        if (this.player) {
+            this.player.setBonusActive(this.isBonusActive || this.collectibleBonusActive);
+        }
+    }
+
+    reset_stats() {
+        if (this.collectibleBonusSpeedBase !== null && this.player) {
+            this.player.speed = this.collectibleBonusSpeedBase;
+        }
+        if (this.baseVisionRadiusWorld !== null && this.baseVisionRadiusWorld !== undefined) {
+            this.visionRadiusWorld = this.baseVisionRadiusWorld;
+        }
+        this.collectibleBonusActive = false;
+        this.collectibleBonusRemainingSeconds = 0;
+        this.collectibleBonusDurationSeconds = 0;
+        this.collectibleBonusType = null;
+        this.collectibleBonusSpeedBase = null;
+        this.collectibleBonusVisionBase = null;
+        this.collectibleTrailActive = false;
+        this.syncPlayerBonusVisualState();
+    }
+
+    applyCollectibleBonusEffect() {
+        if (!this.player || !this.collectibleBonusActive) {
+            return;
+        }
+
+        if (this.collectibleBonusType === "speed" && this.collectibleBonusSpeedBase !== null) {
+            this.player.speed = this.collectibleBonusSpeedBase * 1.5;
+        } else if (this.collectibleBonusType === "vision") {
+            const baseVision = this.baseVisionRadiusWorld ?? this.visionRadiusWorld;
+            this.visionRadiusWorld = baseVision * 1.5;
+        } else if (this.collectibleBonusType === "malus") {
+            const baseVision = this.baseVisionRadiusWorld ?? this.visionRadiusWorld;
+            this.visionRadiusWorld = Math.max(this.tileSize * 1.2, baseVision * 0.6);
+        } else if (this.collectibleBonusType === "trail") {
+            this.collectibleTrailActive = true;
+            this.visionRadiusWorld = this.baseVisionRadiusWorld ?? this.visionRadiusWorld;
+        } else {
+            this.visionRadiusWorld = this.baseVisionRadiusWorld ?? this.visionRadiusWorld;
+        }
+
+        this.syncPlayerBonusVisualState();
+    }
+
+    startRandomCollectibleBonus() {
+        if (!this.player || this.collectibleBonusActive || !this.superPacInventory) {
+            return false;
+        }
+
+        this.collectibleBonusType = ["speed", "vision", "malus", "trail"][Math.floor(Math.random() * 4)];
+        this.collectibleBonusDurationSeconds = Math.random() < 0.5 ? 5 : 10;
+        this.collectibleBonusRemainingSeconds = this.collectibleBonusDurationSeconds;
+        this.collectibleBonusSpeedBase = this.player.speed;
+        this.collectibleBonusVisionBase = this.baseVisionRadiusWorld ?? this.visionRadiusWorld;
+        this.collectibleBonusActive = true;
+        this.superPacInventory = null;
+        this.applyCollectibleBonusEffect();
+        return true;
+    }
+
+    updateCollectibleBonusClock(deltaSeconds) {
+        if (!this.collectibleBonusActive) {
+            return;
+        }
+
+        this.collectibleBonusRemainingSeconds = Math.max(0, this.collectibleBonusRemainingSeconds - deltaSeconds);
+        if (this.collectibleBonusRemainingSeconds <= 0) {
+            this.reset_stats();
+        }
+    }
+
+    collectPickupsAtPlayer() {
+        if (!this.player || !this.maze) {
+            return;
+        }
+
+        const cell = this.getPlayerCell();
+        const key = this.getCellKey(cell);
+
+        if (this.collectibles.superPacGums.has(key)) {
+            if (this.superPacInventory === null) {
+                this.superPacInventory = this.collectibles.superPacGums.get(key);
+                this.collectibles.superPacGums.delete(key);
+                this.collectibles.pacGums.delete(key);
+            }
+            return;
+        }
+
+        if (this.collectibles.pacGums.has(key)) {
+            this.collectibles.pacGums.delete(key);
+        }
+    }
+
+    useStoredSuperPacGum() {
+        return this.startRandomCollectibleBonus();
     }
 
     getBlackHoleShakeOffsets() {
@@ -1570,6 +1754,18 @@ export default class GameScene {
         this.hasAwardedPaceBonus = false;
         this.bonusRemainingSeconds = 0;
         this.bonusElapsedSeconds = 0;
+        this.collectibles = {
+            pacGums: new Map(),
+            superPacGums: new Map()
+        };
+        this.superPacInventory = null;
+        this.collectibleBonusActive = false;
+        this.collectibleBonusRemainingSeconds = 0;
+        this.collectibleBonusDurationSeconds = 0;
+        this.collectibleBonusType = null;
+        this.collectibleBonusSpeedBase = null;
+        this.collectibleBonusVisionBase = null;
+        this.collectibleTrailActive = false;
         this.evaluationPoints = 0;
         this.finalEvaluationPoints = null;
         if (this.player) {
@@ -2109,6 +2305,9 @@ export default class GameScene {
         if (this.game.input?.consumePress && this.game.input.consumePress("Escape")) {
             this.togglePause();
         }
+        if (this.game.input?.consumePress && this.game.input.consumePress("Space")) {
+            this.useStoredSuperPacGum();
+        }
         
         if (this.shouldFetchPlayersMetaFromRoom && this.shouldFetchPlayersMetaFromRoom()) {
             this.fetchPlayersMetaFromRoom();
@@ -2157,12 +2356,15 @@ export default class GameScene {
 
         const targetVisionRadius = cmToPx(paceData.visionCm);
         const targetHoleRadius = cmToPx(paceData.holeCm);
+        this.baseVisionRadiusWorld = targetVisionRadius;
         if (
             paceData.pace !== this.pace ||
-            Math.abs(this.visionRadiusWorld - targetVisionRadius) > 0.001
+            (!this.collectibleBonusActive && Math.abs(this.visionRadiusWorld - targetVisionRadius) > 0.001)
         ) {
             this.pace = paceData.pace;
-            this.visionRadiusWorld = targetVisionRadius;
+            if (!this.collectibleBonusActive) {
+                this.visionRadiusWorld = targetVisionRadius;
+            }
             this.blackHole.setRadius(targetHoleRadius);
             this.blackHole._movementCollisionRadius = Math.max(this.tileSize * 0.3, targetHoleRadius * 0.28);
             this.blackHole.setPace(this.pace);
@@ -2176,6 +2378,11 @@ export default class GameScene {
         if (!this.hasAwardedPaceBonus && this.isBonusPhaseReady()) {
             this.startPaceBonus();
         }
+        if (this.collectibleBonusActive) {
+            this.applyCollectibleBonusEffect();
+        }
+        this.collectPickupsAtPlayer();
+        this.updateCollectibleBonusClock(deltaSeconds);
         this.updateTopHud();
 
         this.updateBlackHoleGhostMovement(deltaSeconds);
@@ -2221,6 +2428,18 @@ export default class GameScene {
         this.hasAwardedPaceBonus = false;
         this.bonusRemainingSeconds = 0;
         this.bonusElapsedSeconds = 0;
+        this.collectibles = {
+            pacGums: new Map(),
+            superPacGums: new Map()
+        };
+        this.superPacInventory = null;
+        this.collectibleBonusActive = false;
+        this.collectibleBonusRemainingSeconds = 0;
+        this.collectibleBonusDurationSeconds = 0;
+        this.collectibleBonusType = null;
+        this.collectibleBonusSpeedBase = null;
+        this.collectibleBonusVisionBase = null;
+        this.collectibleTrailActive = false;
         this.levelClearState = "idle";
         this.levelClearTimer = 0;
         this.createLevel();
@@ -2254,6 +2473,8 @@ export default class GameScene {
         }
         this.isBonusActive = false;
         this.bonusRemainingSeconds = 0;
+        this.reset_stats();
+        this.superPacInventory = null;
         this.player.setBonusActive(false);
         this.setPaused(false);
         this.absorbState = "active";
@@ -2556,6 +2777,7 @@ export default class GameScene {
         }
 
         this.maze.render(ctx, this.game.camera, this.fogTime + absorbT * 1.2);
+        this.renderCollectibles(ctx);
         this.renderExitDoor(ctx);
         this.renderPlayer(ctx, absorbT);
         ctx.restore();
@@ -2566,6 +2788,34 @@ export default class GameScene {
         ctx.restore();
 
         this.renderOutcomeMessage(ctx);
+    }
+
+    renderCollectibles(ctx) {
+        if (!this.maze) {
+            return;
+        }
+
+        const size = this.tileSize;
+
+        ctx.save();
+        for (const cell of this.collectibles.pacGums.values()) {
+            const x = cell.x * size + size * 0.5;
+            const y = cell.y * size + size * 0.5;
+            ctx.fillStyle = "rgba(255, 233, 140, 0.9)";
+            ctx.beginPath();
+            ctx.arc(x, y, Math.max(2.2, size * 0.08), 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        for (const cell of this.collectibles.superPacGums.values()) {
+            const x = cell.x * size + size * 0.5;
+            const y = cell.y * size + size * 0.5;
+            ctx.fillStyle = "rgba(190, 120, 255, 0.95)";
+            ctx.beginPath();
+            ctx.arc(x, y, Math.max(4.5, size * 0.16), 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
     }
 
     renderOverlay(ctx) {
@@ -2657,15 +2907,108 @@ export default class GameScene {
         const viewW = camera.viewWidthWorld;
         const viewH = camera.viewHeightWorld;
         const radius = Math.max(this.tileSize * 1.8, this.visionRadiusWorld);
+        const visibleCells = this.getVisibleCellsInRadius(radius);
 
         ctx.save();
         ctx.beginPath();
-        ctx.arc(this.player.x, this.player.y, radius, 0, Math.PI * 2);
         ctx.rect(viewX, viewY, viewW, viewH);
+        for (const cell of visibleCells) {
+            const x = cell.col * this.tileSize;
+            const y = cell.row * this.tileSize;
+            ctx.rect(x, y, this.tileSize, this.tileSize);
+        }
         ctx.clip("evenodd");
         ctx.fillStyle = "rgba(0, 0, 0, 0.94)";
         ctx.fillRect(viewX, viewY, viewW, viewH);
         ctx.restore();
+    }
+
+    getVisibleCellsInRadius(radius) {
+        if (!this.player || !this.maze) {
+            return [];
+        }
+
+        const tileSize = this.tileSize;
+        const maxCol = this.maze.cols - 1;
+        const maxRow = this.maze.rows - 1;
+        const playerCol = Math.floor(this.player.x / tileSize);
+        const playerRow = Math.floor(this.player.y / tileSize);
+        const radiusCells = Math.ceil(radius / tileSize);
+        const minCol = Math.max(0, playerCol - radiusCells);
+        const maxVisibleCol = Math.min(maxCol, playerCol + radiusCells);
+        const minRow = Math.max(0, playerRow - radiusCells);
+        const maxVisibleRow = Math.min(maxRow, playerRow + radiusCells);
+        const visible = [];
+
+        for (let row = minRow; row <= maxVisibleRow; row += 1) {
+            for (let col = minCol; col <= maxVisibleCol; col += 1) {
+                const centerX = (col + 0.5) * tileSize;
+                const centerY = (row + 0.5) * tileSize;
+                const dx = centerX - this.player.x;
+                const dy = centerY - this.player.y;
+                if (dx * dx + dy * dy > radius * radius) {
+                    continue;
+                }
+                if (!this.hasDirectLineOfSightToCell(col, row)) {
+                    continue;
+                }
+                visible.push({ col, row });
+            }
+        }
+
+        if (!visible.some((cell) => cell.col === playerCol && cell.row === playerRow)) {
+            visible.push({ col: playerCol, row: playerRow });
+        }
+
+        return visible;
+    }
+
+    hasDirectLineOfSightToCell(targetCol, targetRow) {
+        if (!this.player || !this.maze) {
+            return false;
+        }
+
+        if (targetCol < 0 || targetRow < 0 || targetCol >= this.maze.cols || targetRow >= this.maze.rows) {
+            return false;
+        }
+
+        const tileSize = this.tileSize;
+        const startX = this.player.x;
+        const startY = this.player.y;
+        const endX = (targetCol + 0.5) * tileSize;
+        const endY = (targetRow + 0.5) * tileSize;
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance <= 0.0001) {
+            return true;
+        }
+
+        const sampleStep = Math.max(3, tileSize * 0.2);
+        const steps = Math.max(1, Math.ceil(distance / sampleStep));
+
+        for (let i = 1; i <= steps; i += 1) {
+            const t = i / steps;
+            const sampleX = startX + dx * t;
+            const sampleY = startY + dy * t;
+            const sampleCol = Math.floor(sampleX / tileSize);
+            const sampleRow = Math.floor(sampleY / tileSize);
+
+            if (sampleCol < 0 || sampleRow < 0 || sampleCol >= this.maze.cols || sampleRow >= this.maze.rows) {
+                return false;
+            }
+
+            if (sampleCol === targetCol && sampleRow === targetRow) {
+                return true;
+            }
+
+            if (this.maze.isWallAtCell(sampleCol, sampleRow)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     renderOutcomeMessage(ctx) {

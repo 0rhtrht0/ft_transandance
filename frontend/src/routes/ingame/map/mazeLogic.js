@@ -280,6 +280,19 @@ function tryGenerate(rng, cols, rows, difficulty, stage, isMultiplayer) {
             continue;
         }
 
+        const collectibles = {
+            pacGums: [...safeFreeCells],
+            superPacGums: []
+        };
+
+        const shuffledCollectibles = [...safeFreeCells];
+        shuffleInPlace(shuffledCollectibles, rng);
+        const superCount = Math.min(
+            shuffledCollectibles.length,
+            Math.max(1, 1 + Math.floor(rng() * 3))
+        );
+        collectibles.superPacGums = shuffledCollectibles.slice(0, superCount);
+
         const bh1 = pickRandom(safeFreeCells, rng);
         if (!bh1) {
             continue;
@@ -291,7 +304,7 @@ function tryGenerate(rng, cols, rows, difficulty, stage, isMultiplayer) {
             bh2 = pickRandom(bh2Candidates, rng) || bh1;
         }
 
-        return { grid, cols, rows, p1, p2, door, bh1, bh2 };
+        return { grid, cols, rows, p1, p2, door, bh1, bh2, collectibles };
     }
 
     return null;

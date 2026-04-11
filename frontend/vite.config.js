@@ -4,7 +4,7 @@ import path from "path";
 
 export default defineConfig({
     server: {
-        allowedHosts: ["all", "10.11.5.9.nip.io"]
+        allowedHosts: true
     },
     plugins: [vue()],
     resolve: {

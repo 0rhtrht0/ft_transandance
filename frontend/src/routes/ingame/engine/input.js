@@ -15,7 +15,8 @@ export default class Input {
             "KeyD",
             "ShiftLeft",
             "ShiftRight",
-            "Escape"
+            "Escape",
+            "Space"
         ]);
 
         this.boundKeyDown = this.handleKeyDown.bind(this);
